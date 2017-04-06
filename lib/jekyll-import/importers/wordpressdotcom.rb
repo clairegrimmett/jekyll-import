@@ -1,5 +1,4 @@
 # encoding: UTF-8
-require 'pry'
 require 'reverse_markdown'
 
 module JekyllImport
@@ -127,6 +126,8 @@ module JekyllImport
         source        = options.fetch('source', "wordpress.xml")
         fetch         = !options.fetch('no_fetch_images', false)
         assets_folder = options.fetch('assets_folder', 'assets')
+        include_meta = options.fetch('include_meta', false)
+        strip_hero_image = options.fetch('strip_hero_image', true)
         FileUtils.mkdir_p(assets_folder)
 
         import_count = Hash.new(0)
@@ -134,12 +135,9 @@ module JekyllImport
         # Fetch authors data from header
         authors = Hash[
           (doc/:channel/'wp:author').map do |author|
+            author_id = WordpressDotCom.sluggify(author.at('wp:author_display_name').inner_text)
           [author.at("wp:author_login").inner_text.strip, {
-            "login" => author.at("wp:author_login").inner_text.strip,
-            "email" => author.at("wp:author_email").inner_text,
-            "display_name" => author.at("wp:author_display_name").inner_text,
-            "first_name" => author.at("wp:author_first_name").inner_text,
-            "last_name" => author.at("wp:author_last_name").inner_text
+            "display_name" => author.at("wp:author_display_name").inner_text
           }]
           end
         ] rescue {}
@@ -149,11 +147,13 @@ module JekyllImport
           categories = node.search('category[@domain="category"]').map(&:inner_text).map{|c| sluggify(c)}.reject{|c| c == 'uncategorized'}.uniq
           tags = node.search('category[@domain="post_tag"]').map(&:inner_text).uniq
 
-          metas = Hash.new
-          node.search("wp:postmeta").each do |meta|
-            key = meta.at('wp:meta_key').inner_text
-            value = meta.at('wp:meta_value').inner_text
-            metas[key] = value
+          if include_meta
+              metas = Hash.new
+              node.search("wp:postmeta").each do |meta|
+                key = meta.at('wp:meta_key').inner_text
+                value = meta.at('wp:meta_value').inner_text
+                metas[key] = value
+              end
           end
 
           author_login = item.text_for('dc:creator').strip
@@ -167,21 +167,22 @@ module JekyllImport
             'status'     => item.status,
             'categories' => categories,
             'tags'       => tags,
-            'meta'       => metas,
             'author'     => authors[author_login]
           }
 
           begin
             content = Hpricot(item.text_for('content:encoded'))
             header['excerpt'] = item.excerpt if item.excerpt
+            header['meta'] = metas if metas
             first_image = (content/'img').first
+
+
+            if first_image && strip_hero_image
+                content.search('img:first').remove
+            end
 
             if fetch
               download_images(item.title, content, assets_folder)
-            end
-            if first_image
-                header['image'] = File.basename(first_image['src'])
-                content.search('img:first').remove
             end
 
             FileUtils.mkdir_p item.directory_name
@@ -189,7 +190,7 @@ module JekyllImport
               f.puts header.to_yaml
               f.puts '---'
               content = Util.wpautop(content.to_html)
-              f.puts ReverseMarkdown.convert content
+              f.puts ReverseMarkdown.convert(content).gsub('&nbsp;', ' ').strip
             end
           rescue => e
             puts "Couldn't import post!"
