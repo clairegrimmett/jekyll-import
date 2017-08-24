@@ -20,7 +20,8 @@ module JekyllImport
         c.option 'source', '--source FILE', 'WordPress export XML file (default: "wordpress.xml")'
         c.option 'no_fetch_images', '--no-fetch-images', 'Do not fetch the images referenced in the posts'
         c.option 'assets_folder', '--assets_folder FOLDER', 'Folder where assets such as images will be downloaded to (default: assets)'
-      end
+        c.option 'include_meta', '--include_meta', 'Import meta data from the wordpress post'
+    end
 
       # Will modify post DOM tree
       def self.download_images(title, post_hpricot, assets_folder)
@@ -146,25 +147,33 @@ module JekyllImport
           item = Item.new(node)
           categories = node.search('category[@domain="category"]').map(&:inner_text).map{|c| sluggify(c)}.reject{|c| c == 'uncategorized'}.uniq
           tags = node.search('category[@domain="post_tag"]').map(&:inner_text).uniq
+          description = nil
+          title = nil
 
-          if include_meta
-              metas = Hash.new
-              node.search("wp:postmeta").each do |meta|
-                key = meta.at('wp:meta_key').inner_text
-                value = meta.at('wp:meta_value').inner_text
-                metas[key] = value
-              end
+          metas = Hash.new
+          node.search("wp:postmeta").each do |meta|
+            key = meta.at('wp:meta_key').inner_text
+            value = meta.at('wp:meta_value').inner_text
+            if key === '_yoast_wpseo_metadesc'
+                description = value
+            end
+            if key === '_yoast_wpseo_title'
+                title = value
+            end
+            metas[key] = value
           end
+
 
           author_login = item.text_for('dc:creator').strip
 
-          header = {
+          header_info = {
             'layout'     => item.post_type,
-            'title'      => item.title,
+            'title'     => item.title,
+            'page_title'      => title || item.title,
+            'page_description'=> description,
             'date'       => item.published_at,
             'type'       => item.post_type,
             'published'  => item.published?,
-            'status'     => item.status,
             'categories' => categories,
             'tags'       => tags,
             'author'     => authors[author_login]
@@ -172,10 +181,9 @@ module JekyllImport
 
           begin
             content = Hpricot(item.text_for('content:encoded'))
-            header['excerpt'] = item.excerpt if item.excerpt
-            header['meta'] = metas if metas
+            header_info['excerpt'] = item.excerpt if item.excerpt
+            header_info['meta'] = metas if include_meta
             first_image = (content/'img').first
-
 
             if first_image && strip_hero_image
                 content.search('img:first').remove
@@ -187,7 +195,7 @@ module JekyllImport
 
             FileUtils.mkdir_p item.directory_name
             File.open(File.join(item.directory_name, item.file_name), "w") do |f|
-              f.puts header.to_yaml
+              f.puts header_info.to_yaml
               f.puts '---'
               content = Util.wpautop(content.to_html)
               f.puts ReverseMarkdown.convert(content).gsub('&nbsp;', ' ').strip
