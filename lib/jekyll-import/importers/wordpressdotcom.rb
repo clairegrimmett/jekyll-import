@@ -1,5 +1,6 @@
 # encoding: UTF-8
 require 'reverse_markdown'
+require 'pry'
 
 module JekyllImport
   module Importers
@@ -22,6 +23,7 @@ module JekyllImport
         c.option 'assets_folder', '--assets_folder FOLDER', 'Folder where assets such as images will be downloaded to (default: assets)'
         c.option 'include_meta', '--include_meta', 'Import meta data from the wordpress post'
         c.option 'strip_hero_image', '--strip_hero_image', 'Strip the first image from content to use as hero image'
+        c.option 'post_type', '--post_type', 'The post type that we are importing'
     end
 
       # Will modify post DOM tree
@@ -90,6 +92,7 @@ module JekyllImport
 
         def post_type
           @post_type ||= text_for('wp:post_type')
+
         end
 
         def file_name
@@ -131,7 +134,7 @@ module JekyllImport
         include_meta = options.fetch('include_meta', false)
         strip_hero_image = options.fetch('strip_hero_image', true)
         FileUtils.mkdir_p(assets_folder)
-
+        binding.pry
         import_count = Hash.new(0)
         doc = Hpricot::XML(File.read(source))
         # Fetch authors data from header
