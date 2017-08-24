@@ -1,6 +1,9 @@
 ## HEAD
 
   * WordPress: replace was backwards, broke end tags (#292)
+  * Use mysql2 instead of mysql in Joomla3 importer (#309)
+  * Add option to specify the MySQL port for the Joomla importers (#310)
+  * add port options for wordpress mysql db connection (#311)
 
 ### Bug Fixes
 
@@ -16,6 +19,14 @@
   * Corrected Joomla3 importer name and clarified "category" field (#286)
   * Fixed style issues on HTTPS site (#296)
   * Change broken link for "A great article" (#294)
+
+### Minor Enhancements
+
+  * Ghost: import drafts & pages, and fix issue with date extraction (#304)
+
+### Documentation
+
+  * Add the new port setting to the Wordpress importer docs (#312)
 
 ## 0.12.0 / 2016-11-28
 
