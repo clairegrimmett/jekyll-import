@@ -21,6 +21,7 @@ module JekyllImport
         c.option 'no_fetch_images', '--no-fetch-images', 'Do not fetch the images referenced in the posts'
         c.option 'assets_folder', '--assets_folder FOLDER', 'Folder where assets such as images will be downloaded to (default: assets)'
         c.option 'include_meta', '--include_meta', 'Import meta data from the wordpress post'
+        c.option 'strip_hero_image', '--strip_hero_image', 'Strip the first image from content to use as hero image'
     end
 
       # Will modify post DOM tree
@@ -176,7 +177,7 @@ module JekyllImport
             'published'  => item.published?,
             'categories' => categories,
             'tags'       => tags,
-            'author'     => authors[author_login]
+            'author'     => authors[author_login].display_name
           }
 
           begin
